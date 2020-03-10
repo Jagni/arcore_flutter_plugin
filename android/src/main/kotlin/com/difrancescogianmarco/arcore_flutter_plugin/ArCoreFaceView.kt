@@ -74,6 +74,9 @@ class ArCoreFaceView(activity:Activity,context: Context, messenger: BinaryMessen
                 "init" -> {
                     arScenViewInit(call, result)
                 }
+                "request_frame_image" -> {
+                    frameRequested = true
+                }
                 "loadMesh" -> {
                     val map = call.arguments as HashMap<*, *>
                     val textureBytes = map["textureBytes"] as ByteArray
