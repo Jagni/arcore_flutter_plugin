@@ -16,6 +16,7 @@ typedef ArCoreHitResultHandler = void Function(List<ArCoreHitTestResult> hits);
 typedef ArCorePlaneHandler = void Function(ArCorePlane plane);
 typedef ArCoreAugmentedImageTrackingHandler = void Function(
     ArCoreAugmentedImage);
+typedef ArCoreFrameImageHandler = void Function(Uint8List);
 
 const UTILS_CHANNEL_NAME = 'arcore_flutter_plugin/utils';
 
@@ -30,6 +31,7 @@ class ArCoreController {
     int id,
     this.enableTapRecognizer,
     this.enableUpdateListener,
+    this.enableFrameImageListener
 //    @required this.onUnsupported,
   }) {
     _channel = MethodChannel('arcore_flutter_plugin_$id');
@@ -39,6 +41,7 @@ class ArCoreController {
 
   final bool enableUpdateListener;
   final bool enableTapRecognizer;
+  final bool enableFrameImageListener;
   MethodChannel _channel;
   StringResultHandler onError;
   StringResultHandler onNodeTap;
@@ -47,12 +50,14 @@ class ArCoreController {
   ArCoreHitResultHandler onPlaneTap;
   ArCorePlaneHandler onPlaneDetected;
   ArCoreAugmentedImageTrackingHandler onTrackingImage;
+  ArCoreFrameImageHandler onFrameImage;
 
   init() async {
     try {
       await _channel.invokeMethod<void>('init', {
         'enableTapRecognizer': enableTapRecognizer,
         'enableUpdateListener': enableUpdateListener,
+        'enableFrameImageListener': enableFrameImageListener,
       });
     } on PlatformException catch (ex) {
       print(ex.message);
@@ -94,6 +99,10 @@ class ArCoreController {
         final arCoreAugmentedImage =
             ArCoreAugmentedImage.fromMap(call.arguments);
         onTrackingImage(arCoreAugmentedImage);
+        break;
+      case 'onFrameImageReceived':
+        print('flutter onFrameImage');
+        onFrameImage(call.arguments);
         break;
       default:
         print('Unknowm method ${call.method} ');
@@ -182,6 +191,10 @@ class ArCoreController {
     return _channel.invokeMethod('load_augmented_images_database', {
       'bytes': bytes,
     });
+  }
+
+  Future<void> requestFrameImage(){
+    return _channel.invokeMethod('request_frame_image', {});
   }
 
   void dispose() {

@@ -131,6 +131,9 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
                     Log.i(TAG, "INIT AUGMENTED IMAGES")
                     arScenViewInit(call, result)
                 }
+                "request_frame_image" -> {
+                    frameRequested = true
+                }
                 "load_single_image_on_db" -> {
                     Log.i(TAG, "load_single_image_on_db")
                     val map = call.arguments as HashMap<String, Any>

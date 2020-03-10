@@ -40,6 +40,7 @@ class ArCoreView(val activity:Activity, context: Context, messenger: BinaryMesse
     private var arSceneView: ArSceneView? = null
     private val gestureDetector: GestureDetector
     private val RC_PERMISSIONS = 0x123
+    protected var frameRequested = false
     private var sceneUpdateListener: Scene.OnUpdateListener
     private var faceSceneUpdateListener: Scene.OnUpdateListener
 
@@ -86,6 +87,39 @@ class ArCoreView(val activity:Activity, context: Context, messenger: BinaryMesse
                     methodChannel.invokeMethod("onPlaneDetected", map)
                 }
             }
+        }
+
+        frameUpdateListener = Scene.OnUpdateListener { frameTime ->
+            if (frameRequested) {
+                frameRequested = false
+            try {
+                val cameraImage = arSceneView?.arFrame.acquireCameraImage()
+
+                val buffer = cameraImage.getPlanes()[0].getBuffer()
+
+                val cameraPlaneY = cameraImage.planes[0].buffer
+                val cameraPlaneU = cameraImage.planes[1].buffer
+                val cameraPlaneV = cameraImage.planes[2].buffer
+
+                //Use the buffers to create a new byteArray
+                val compositeByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
+
+                cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity())
+                cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
+                cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
+
+                val baOutputStream = ByteArrayOutputStream()
+                val yuvImage: YuvImage = YuvImage(compositeByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
+                yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
+                val byteArray = baOutputStream.toByteArray();
+
+                methodChannel.invokeMethod("onImageUpdated", byteArray);
+
+            } catch (e: Exception) {
+
+            }
+
+        }
         }
 
         faceSceneUpdateListener = Scene.OnUpdateListener { frameTime ->
@@ -153,6 +187,9 @@ class ArCoreView(val activity:Activity, context: Context, messenger: BinaryMesse
         when (call.method) {
             "init" -> {
                 arScenViewInit(call, result, activity)
+            }
+            "request_frame_image" -> {
+                frameRequested = true
             }
             "addArCoreNode" -> {
                 Log.i(TAG, " addArCoreNode")
@@ -281,6 +318,7 @@ class ArCoreView(val activity:Activity, context: Context, messenger: BinaryMesse
 
     private fun arScenViewInit(call: MethodCall, result: MethodChannel.Result, context: Context) {
         Log.i(TAG, "arScenViewInit")
+
         val enableTapRecognizer: Boolean? = call.argument("enableTapRecognizer")
         if (enableTapRecognizer != null && enableTapRecognizer) {
             arSceneView
@@ -297,12 +335,21 @@ class ArCoreView(val activity:Activity, context: Context, messenger: BinaryMesse
                         return@setOnTouchListener gestureDetector.onTouchEvent(event)
                     }
         }
+
         val enableUpdateListener: Boolean? = call.argument("enableUpdateListener")
         if (enableUpdateListener != null && enableUpdateListener) {
             // Set an update listener on the Scene that will hide the loading message once a Plane is
             // detected.
             arSceneView?.scene?.addOnUpdateListener(sceneUpdateListener)
         }
+
+        val enableFrameListener: Boolean? = call.argument("enableFrameListener")
+        if (enableUpdateListener != null && enableUpdateListener) {
+            // Set an update listener on the Scene that will hide the loading message once a Plane is
+            // detected.
+            arSceneView?.scene?.addOnUpdateListener(sceneUpdateListener)
+        }
+
         result.success(null)
     }
 

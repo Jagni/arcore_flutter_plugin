@@ -30,6 +30,9 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
     protected var installRequested: Boolean = false
     private val TAG: String = BaseArCoreView::class.java.name
     protected var isSupportedDevice = false
+    protected var frameRequested = false
+    private var frameImageListener: Scene.OnUpdateListener
+
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -39,6 +42,47 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
             ArCoreUtils.requestCameraPermission(activity, RC_PERMISSIONS)
             setupLifeCycle(context)
         }
+
+        frameImageListener = Scene.OnUpdateListener { frameTime ->
+            if (frameRequested) {
+                frameRequested = false
+                try {
+                    val cameraImage = arSceneView?.arFrame.acquireCameraImage()
+
+                    val buffer = cameraImage.getPlanes()[0].getBuffer()
+
+                    val cameraPlaneY = cameraImage.planes[0].buffer
+                    val cameraPlaneU = cameraImage.planes[1].buffer
+                    val cameraPlaneV = cameraImage.planes[2].buffer
+
+                    //Use the buffers to create a new byteArray
+                    val compositeByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
+
+                    cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity())
+                    cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
+                    cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
+
+                    val baOutputStream = ByteArrayOutputStream()
+                    val yuvImage: YuvImage = YuvImage(compositeByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
+                    yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
+                    val byteArray = baOutputStream.toByteArray();
+
+                    methodChannel.invokeMethod("onFrameImageReceived", byteArray);
+
+                } catch (e: Exception) {
+                    Log.i(TAG, e)
+                }
+            }
+        }
+    }
+
+    private fun arScenViewInit(call: MethodCall, result: MethodChannel.Result) {
+        val enableFrameImageListener: Boolean? = call.argument("enableFrameImageListener")
+        if (enableFrameImageListener != null && enableFrameImageListener) {
+            arSceneView?.scene?.addOnUpdateListener(frameImageUpdateListener)
+        }
+        onResume()
+        result.success(null)
     }
 
     private fun setupLifeCycle(context: Context) {
@@ -91,6 +135,13 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
 
     override fun onMethodCall(call: MethodCall, result: MethodChannel.Result) {
 
+        if (isSupportedDevice) {
+            Log.i(TAG, call.method + "called on supported device")
+            when (call.method) {
+                "request_frame_image" -> {
+                    frameRequested = true
+                }
+            }
     }
 
     open fun onResume() {
