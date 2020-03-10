@@ -29,12 +29,10 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
     private val TAG: String = ArCoreAugmentedImagesView::class.java.name
     private var sceneUpdateListener: Scene.OnUpdateListener
     // Augmented image and its associated center pose anchor, keyed by index of the augmented image in
-    // the
-    // database.
+    // the database.
     private val augmentedImageMap = HashMap<Int, Pair<AugmentedImage, AnchorNode>>()
 
     init {
-
         sceneUpdateListener = Scene.OnUpdateListener { frameTime ->
 
             val frame = arSceneView?.arFrame ?: return@OnUpdateListener
@@ -200,6 +198,10 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
 
     private fun arScenViewInit(call: MethodCall, result: MethodChannel.Result) {
         arSceneView?.scene?.addOnUpdateListener(sceneUpdateListener)
+        val enableFrameImageListener: Boolean? = call.argument("enableFrameImageListener")
+        if (enableFrameImageListener != null && enableFrameImageListener) {
+            arSceneView?.scene?.addOnUpdateListener(frameImageListener)
+        }
         onResume()
         result.success(null)
     }

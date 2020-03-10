@@ -1,5 +1,13 @@
 package com.difrancescogianmarco.arcore_flutter_plugin
 
+import java.io.ByteArrayOutputStream
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
+import android.graphics.Bitmap 
+import android.graphics.Matrix
+import android.graphics.BitmapFactory
+
 import android.app.Activity
 import android.app.Application
 import android.content.Context
@@ -11,6 +19,7 @@ import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCo
 import com.difrancescogianmarco.arcore_flutter_plugin.utils.ArCoreUtils
 import com.google.ar.core.ArCoreApk
 import com.google.ar.core.Pose
+import com.google.ar.sceneform.Scene
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.ArSceneView
 import com.google.ar.sceneform.Node
@@ -31,8 +40,7 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
     private val TAG: String = BaseArCoreView::class.java.name
     protected var isSupportedDevice = false
     protected var frameRequested = false
-    private var frameImageListener: Scene.OnUpdateListener
-
+    protected var frameImageListener: Scene.OnUpdateListener
 
     init {
         methodChannel.setMethodCallHandler(this)
@@ -42,12 +50,11 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
             ArCoreUtils.requestCameraPermission(activity, RC_PERMISSIONS)
             setupLifeCycle(context)
         }
-
         frameImageListener = Scene.OnUpdateListener { frameTime ->
             if (frameRequested) {
                 frameRequested = false
                 try {
-                    val cameraImage = arSceneView?.arFrame.acquireCameraImage()
+                    val cameraImage = arSceneView!!.arFrame!!.acquireCameraImage()
 
                     val buffer = cameraImage.getPlanes()[0].getBuffer()
 
@@ -67,10 +74,23 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                     yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
                     val byteArray = baOutputStream.toByteArray();
 
-                    methodChannel.invokeMethod("onFrameImageReceived", byteArray);
+                    val storedBitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, null)
+
+                    val mat = Matrix()                        
+                    mat.postRotate(90f)                            
+                    val stream = ByteArrayOutputStream();
+                    storedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    val rotatedByteArray = stream.toByteArray();
+                    storedBitmap.recycle();
+
+                    activity.runOnUiThread {
+                    methodChannel.invokeMethod("onFrameImageReceived", rotatedByteArray);
+                    }
 
                 } catch (e: Exception) {
-                    Log.i(TAG, e)
+                    activity.runOnUiThread {
+                        methodChannel.invokeMethod("onFrameImageReceived", null);
+                        }
                 }
             }
         }
@@ -79,7 +99,7 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
     private fun arScenViewInit(call: MethodCall, result: MethodChannel.Result) {
         val enableFrameImageListener: Boolean? = call.argument("enableFrameImageListener")
         if (enableFrameImageListener != null && enableFrameImageListener) {
-            arSceneView?.scene?.addOnUpdateListener(frameImageUpdateListener)
+            arSceneView?.scene?.addOnUpdateListener(frameImageListener)
         }
         onResume()
         result.success(null)
@@ -142,6 +162,7 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                     frameRequested = true
                 }
             }
+        }
     }
 
     open fun onResume() {

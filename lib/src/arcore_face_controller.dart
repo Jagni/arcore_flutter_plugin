@@ -52,13 +52,6 @@ class ArCoreFaceController {
     });
   }
 
-  Future<void> requestFrame() {
-    return _channel.invokeMethod('loadMesh', {
-      'textureBytes': textureBytes,
-      'skin3DModelFilename': skin3DModelFilename
-    });
-  }
-
   void dispose() {
     _channel?.invokeMethod<void>('dispose');
   }

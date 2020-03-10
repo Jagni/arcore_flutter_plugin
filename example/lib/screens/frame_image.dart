@@ -2,8 +2,6 @@ import 'dart:typed_data';
 
 import 'package:arcore_flutter_plugin/arcore_flutter_plugin.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
-import 'package:vector_math/vector_math_64.dart' as vector;
 
 class FrameImage extends StatefulWidget {
   @override
@@ -12,6 +10,7 @@ class FrameImage extends StatefulWidget {
 
 class _FrameImageState extends State<FrameImage> {
   ArCoreController arCoreController;
+  bool isLoadingFrame = false;
 
   @override
   Widget build(BuildContext context) {
@@ -19,6 +18,10 @@ class _FrameImageState extends State<FrameImage> {
       home: Scaffold(
         appBar: AppBar(
           title: const Text('Hello World'),
+        ),
+        floatingActionButton: FloatingActionButton(
+          onPressed: didPressFAB,
+          child: fabContent(),
         ),
         body: ArCoreView(
           onArCoreViewCreated: _onArCoreViewCreated,
@@ -28,64 +31,40 @@ class _FrameImageState extends State<FrameImage> {
     );
   }
 
+  Widget fabContent() {
+    if (isLoadingFrame) {
+      return CircularProgressIndicator(
+        valueColor: AlwaysStoppedAnimation(Colors.white),
+      );
+    }
+    return Icon(Icons.camera);
+  }
+
   void _onArCoreViewCreated(ArCoreController controller) {
     arCoreController = controller;
     controller.onFrameImage = onFrameImage;
-    controller.requestFrameImage();
   }
 
-  void onFrameImage(Uint8List byteArray){
-    print(byteArray);
+  void onFrameImage(Uint8List byteArray) {
+    setState(() {
+      isLoadingFrame = false;
+    });
+
+    Dialog imageDialog = Dialog(
+        shape: RoundedRectangleBorder(
+            borderRadius: BorderRadius.circular(12.0)), //this right here
+        child: Container(
+            height: 300.0, width: 300.0, child: Image.memory(byteArray)));
+
+    showDialog(
+        context: context, builder: (BuildContext context) => imageDialog);
   }
 
-  Future _addSphere(ArCoreController controller) async {
-    final ByteData textureBytes = await rootBundle.load('assets/earth.jpg');
-
-    final material = ArCoreMaterial(
-        color: Color.fromARGB(120, 66, 134, 244),
-        textureBytes: textureBytes.buffer.asUint8List());
-    final sphere = ArCoreSphere(
-      materials: [material],
-      radius: 0.1,
-    );
-    final node = ArCoreNode(
-      shape: sphere,
-      position: vector.Vector3(0, 0, -1.5),
-    );
-    controller.addArCoreNode(node);
-  }
-
-  void _addCylindre(ArCoreController controller) {
-    final material = ArCoreMaterial(
-      color: Colors.red,
-      reflectance: 1.0,
-    );
-    final cylindre = ArCoreCylinder(
-      materials: [material],
-      radius: 0.5,
-      height: 0.3,
-    );
-    final node = ArCoreNode(
-      shape: cylindre,
-      position: vector.Vector3(0.0, -0.5, -2.0),
-    );
-    controller.addArCoreNode(node);
-  }
-
-  void _addCube(ArCoreController controller) {
-    final material = ArCoreMaterial(
-      color: Color.fromARGB(120, 66, 134, 244),
-      metallic: 1.0,
-    );
-    final cube = ArCoreCube(
-      materials: [material],
-      size: vector.Vector3(0.5, 0.5, 0.5),
-    );
-    final node = ArCoreNode(
-      shape: cube,
-      position: vector.Vector3(-0.5, 0.5, -3.5),
-    );
-    controller.addArCoreNode(node);
+  didPressFAB() {
+    arCoreController.requestFrameImage();
+    setState(() {
+      isLoadingFrame = true;
+    });
   }
 
   @override

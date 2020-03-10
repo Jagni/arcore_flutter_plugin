@@ -1,5 +1,12 @@
 package com.difrancescogianmarco.arcore_flutter_plugin
 
+import java.io.ByteArrayOutputStream
+import android.graphics.ImageFormat
+import android.graphics.Rect
+import android.graphics.YuvImage
+import android.graphics.Bitmap 
+import android.graphics.Matrix
+
 import android.app.Activity
 import android.app.Application
 import android.content.Context
@@ -11,11 +18,13 @@ import android.view.GestureDetector
 import android.view.MotionEvent
 import android.view.View
 import android.widget.Toast
+
 import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCoreHitTestResult
 import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCoreNode
 import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCorePose
 import com.difrancescogianmarco.arcore_flutter_plugin.models.RotatingNode
 import com.difrancescogianmarco.arcore_flutter_plugin.utils.ArCoreUtils
+
 import com.google.ar.core.*
 import com.google.ar.core.exceptions.CameraNotAvailableException
 import com.google.ar.core.exceptions.UnavailableException
@@ -43,6 +52,7 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
     protected var frameRequested = false
     private var sceneUpdateListener: Scene.OnUpdateListener
     private var faceSceneUpdateListener: Scene.OnUpdateListener
+    private var frameImageListener: Scene.OnUpdateListener
 
     //AUGMENTEDFACE
     private var faceRegionsRenderable: ModelRenderable? = null
@@ -89,37 +99,52 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             }
         }
 
-        frameUpdateListener = Scene.OnUpdateListener { frameTime ->
+        frameImageListener = Scene.OnUpdateListener { frameTime ->
             if (frameRequested) {
                 frameRequested = false
-            try {
-                val cameraImage = arSceneView?.arFrame.acquireCameraImage()
+                try {
+                    val cameraImage = arSceneView!!.arFrame!!.acquireCameraImage()
 
-                val buffer = cameraImage.getPlanes()[0].getBuffer()
+                    val buffer = cameraImage.getPlanes()[0].getBuffer()
 
-                val cameraPlaneY = cameraImage.planes[0].buffer
-                val cameraPlaneU = cameraImage.planes[1].buffer
-                val cameraPlaneV = cameraImage.planes[2].buffer
+                    val cameraPlaneY = cameraImage.planes[0].buffer
+                    val cameraPlaneU = cameraImage.planes[1].buffer
+                    val cameraPlaneV = cameraImage.planes[2].buffer
 
-                //Use the buffers to create a new byteArray
-                val compositeByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
+                    //Use the buffers to create a new byteArray
+                    val compositeByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
 
-                cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity())
-                cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
-                cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
+                    cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity())
+                    cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
+                    cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
 
-                val baOutputStream = ByteArrayOutputStream()
-                val yuvImage: YuvImage = YuvImage(compositeByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
-                yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
-                val byteArray = baOutputStream.toByteArray();
+                    val baOutputStream = ByteArrayOutputStream()
+                    val yuvImage: YuvImage = YuvImage(compositeByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
+                    yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
+                    val byteArray = baOutputStream.toByteArray();
 
-                methodChannel.invokeMethod("onImageUpdated", byteArray);
+                    val originalBitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, null)
+                    val matrix = Matrix()                        
+                    matrix.postRotate(90f)   
+                    val rotatedBitmap = Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
+                      
+                    val stream = ByteArrayOutputStream();
+                    rotatedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    val rotatedByteArray = stream.toByteArray();
+                    
+                    activity.runOnUiThread {
+                    methodChannel.invokeMethod("onFrameImageReceived", rotatedByteArray);
+                    }
 
-            } catch (e: Exception) {
+                    rotatedBitmap.recycle();
+                    originalBitmap.recycle();
 
+                } catch (e: Exception) {
+                    activity.runOnUiThread {
+                        methodChannel.invokeMethod("onFrameImageReceived", null);
+                        }
+                }
             }
-
-        }
         }
 
         faceSceneUpdateListener = Scene.OnUpdateListener { frameTime ->
@@ -343,11 +368,11 @@ class ArCoreView(val activity: Activity, context: Context, messenger: BinaryMess
             arSceneView?.scene?.addOnUpdateListener(sceneUpdateListener)
         }
 
-        val enableFrameListener: Boolean? = call.argument("enableFrameListener")
-        if (enableUpdateListener != null && enableUpdateListener) {
+        val enableFrameListener: Boolean? = call.argument("enableFrameImageListener")
+        if (enableFrameListener != null && enableFrameListener) {
             // Set an update listener on the Scene that will hide the loading message once a Plane is
             // detected.
-            arSceneView?.scene?.addOnUpdateListener(sceneUpdateListener)
+            arSceneView?.scene?.addOnUpdateListener(frameImageListener)
         }
 
         result.success(null)
