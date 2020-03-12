@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:arcore_flutter_plugin/arcore_flutter_plugin.dart';
+import 'package:vector_math/vector_math_64.dart' as vector;
 
 class AugmentedPage extends StatefulWidget {
   @override
@@ -32,6 +33,23 @@ class _AugmentedPageState extends State<AugmentedPage> {
     //loadSingleImage();
     //OR
     loadImagesDatabase();
+    _addCube(controller);
+  }
+
+  void _addCube(ArCoreController controller) {
+    final material = ArCoreMaterial(
+      color: Color.fromARGB(120, 66, 134, 244),
+      metallic: 1.0,
+    );
+    final cube = ArCoreCube(
+      materials: [material],
+      size: vector.Vector3(0.5, 0.5, 0.5),
+    );
+    final node = ArCoreNode(
+      shape: cube,
+      position: vector.Vector3(-0.5, 0.5, -3.5),
+    );
+    controller.addArCoreNode(node);
   }
 
   loadSingleImage() async {
@@ -68,6 +86,7 @@ class _AugmentedPageState extends State<AugmentedPage> {
     final node = ArCoreNode(
       shape: sphere,
     );
+
     arCoreController.addArCoreNodeToAugmentedImage(node, augmentedImage.index);
   }
 

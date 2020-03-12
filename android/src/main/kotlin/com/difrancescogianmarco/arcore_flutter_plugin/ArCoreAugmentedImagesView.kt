@@ -181,6 +181,17 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
                     }
 
                 }
+                "addArCoreNode" -> {
+                    Log.i(TAG, " addArCoreNode")
+                    val map = call.arguments as HashMap<String, Any>
+                    val flutterNode = FlutterArCoreNode(map);
+                    onAddNode(flutterNode, result)
+                }
+                "removeARCoreNode" -> {
+                    Log.i(TAG, " removeARCoreNode")
+                    val map = call.arguments as HashMap<String, Any>
+                    removeNode(map["nodeName"] as String, result)
+                }
                 "dispose" -> {
                     Log.i(TAG, " updateMaterials")
                     dispose()

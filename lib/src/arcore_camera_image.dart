@@ -1,7 +1,5 @@
 import 'dart:typed_data';
 
-import 'package:arcore_flutter_plugin/src/arcore_pose.dart';
-
 class ArCoreCameraImage {
   Uint8List jpgImage;
   Uint8List yuvImage;
