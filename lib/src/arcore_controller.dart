@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:arcore_flutter_plugin/src/arcore_augmented_image.dart';
+import 'package:arcore_flutter_plugin/src/arcore_camera_image.dart';
 import 'package:arcore_flutter_plugin/src/arcore_rotating_node.dart';
 import 'package:arcore_flutter_plugin/src/utils/vector_utils.dart';
 import 'package:flutter/services.dart';
@@ -16,7 +17,7 @@ typedef ArCoreHitResultHandler = void Function(List<ArCoreHitTestResult> hits);
 typedef ArCorePlaneHandler = void Function(ArCorePlane plane);
 typedef ArCoreAugmentedImageTrackingHandler = void Function(
     ArCoreAugmentedImage);
-typedef ArCoreFrameImageHandler = void Function(Uint8List);
+typedef ArCoreFrameImageHandler = void Function(ArCoreCameraImage);
 
 const UTILS_CHANNEL_NAME = 'arcore_flutter_plugin/utils';
 
@@ -102,7 +103,8 @@ class ArCoreController {
         break;
       case 'onFrameImageReceived':
         print('flutter onFrameImage');
-        onFrameImage(call.arguments);
+        final cameraImage = ArCoreCameraImage.fromMap(call.arguments);
+        onFrameImage(cameraImage);
         break;
       default:
         print('Unknowm method ${call.method} ');

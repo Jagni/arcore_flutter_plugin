@@ -45,7 +45,7 @@ class _FrameImageState extends State<FrameImage> {
     controller.onFrameImage = onFrameImage;
   }
 
-  void onFrameImage(Uint8List byteArray) {
+  void onFrameImage(ArCoreCameraImage cameraImage) {
     setState(() {
       isLoadingFrame = false;
     });
@@ -54,7 +54,7 @@ class _FrameImageState extends State<FrameImage> {
         shape: RoundedRectangleBorder(
             borderRadius: BorderRadius.circular(12.0)), //this right here
         child: Container(
-            height: 300.0, width: 300.0, child: Image.memory(byteArray)));
+            height: 300.0, width: 300.0, child: Image.memory(cameraImage.jpgImage)));
 
     showDialog(
         context: context, builder: (BuildContext context) => imageDialog);

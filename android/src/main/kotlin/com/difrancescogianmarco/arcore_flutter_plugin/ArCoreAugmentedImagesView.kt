@@ -162,7 +162,6 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
                                 result.success(null)
                             } else if (throwable != null) {
                                 result.error("attachObjectToAugmentedImage error", throwable.localizedMessage, null)
-
                             }
                         }
                     } else {

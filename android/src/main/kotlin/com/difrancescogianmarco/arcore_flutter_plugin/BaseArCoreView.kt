@@ -50,6 +50,7 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
             ArCoreUtils.requestCameraPermission(activity, RC_PERMISSIONS)
             setupLifeCycle(context)
         }
+
         frameImageListener = Scene.OnUpdateListener { frameTime ->
             if (frameRequested) {
                 frameRequested = false
@@ -63,14 +64,14 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                     val cameraPlaneV = cameraImage.planes[2].buffer
 
                     //Use the buffers to create a new byteArray
-                    val compositeByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
+                    val yuvByteArray = ByteArray(cameraPlaneY.capacity() + cameraPlaneU.capacity() + cameraPlaneV.capacity())
 
-                    cameraPlaneY.get(compositeByteArray, 0, cameraPlaneY.capacity())
-                    cameraPlaneU.get(compositeByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
-                    cameraPlaneV.get(compositeByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
+                    cameraPlaneY.get(yuvByteArray, 0, cameraPlaneY.capacity())
+                    cameraPlaneU.get(yuvByteArray, cameraPlaneY.capacity(), cameraPlaneU.capacity())
+                    cameraPlaneV.get(yuvByteArray, cameraPlaneY.capacity() + cameraPlaneU.capacity(), cameraPlaneV.capacity())
 
                     val baOutputStream = ByteArrayOutputStream()
-                    val yuvImage: YuvImage = YuvImage(compositeByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
+                    val yuvImage: YuvImage = YuvImage(yuvByteArray, ImageFormat.NV21, cameraImage.width, cameraImage.height, null)
                     yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
                     val byteArray = baOutputStream.toByteArray();
 
@@ -83,9 +84,7 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                     rotatedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
                     val rotatedByteArray = stream.toByteArray();
                     
-                    activity.runOnUiThread {
-                    methodChannel.invokeMethod("onFrameImageReceived", rotatedByteArray);
-                    }
+                    sendCameraImage(yuvByteArray, rotatedByteArray, cameraImage.width, cameraImage.height)
 
                     rotatedBitmap.recycle();
                     originalBitmap.recycle();
@@ -96,6 +95,17 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                         }
                 }
             }
+        }
+    }
+
+    private fun sendCameraImage(yuvByteArray: ByteArray, jpgByteArray: ByteArray, width: Int, height: Int) {
+        val map: HashMap<String, Any> = HashMap<String, Any>()
+        map["yuvImage"] = yuvByteArray
+        map["jpgImage"] = jpgByteArray
+        map["width"] = width
+        map["height"] = height
+        activity.runOnUiThread {
+            methodChannel.invokeMethod("onFrameImageReceived", map)
         }
     }
 
