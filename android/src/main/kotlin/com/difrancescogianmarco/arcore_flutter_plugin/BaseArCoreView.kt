@@ -74,18 +74,21 @@ open class BaseArCoreView(val activity: Activity, context: Context, messenger: B
                     yuvImage.compressToJpeg(Rect(0, 0, cameraImage.width, cameraImage.height), 75, baOutputStream)
                     val byteArray = baOutputStream.toByteArray();
 
-                    val storedBitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, null)
-
-                    val mat = Matrix()                        
-                    mat.postRotate(90f)                            
+                    val originalBitmap = BitmapFactory.decodeByteArray(byteArray, 0, byteArray.size, null)
+                    val matrix = Matrix()                        
+                    matrix.postRotate(90f)   
+                    val rotatedBitmap = Bitmap.createBitmap(originalBitmap, 0, 0, originalBitmap.width, originalBitmap.height, matrix, true)
+                      
                     val stream = ByteArrayOutputStream();
-                    storedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
+                    rotatedBitmap.compress(Bitmap.CompressFormat.PNG, 100, stream);
                     val rotatedByteArray = stream.toByteArray();
-                    storedBitmap.recycle();
-
+                    
                     activity.runOnUiThread {
                     methodChannel.invokeMethod("onFrameImageReceived", rotatedByteArray);
                     }
+
+                    rotatedBitmap.recycle();
+                    originalBitmap.recycle();
 
                 } catch (e: Exception) {
                     activity.runOnUiThread {
