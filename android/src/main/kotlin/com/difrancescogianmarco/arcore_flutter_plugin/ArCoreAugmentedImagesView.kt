@@ -6,10 +6,12 @@ import android.graphics.Bitmap
 import android.graphics.BitmapFactory
 import android.util.Log
 import android.util.Pair
+import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCoreHitTestResult
 import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCoreNode
 import com.difrancescogianmarco.arcore_flutter_plugin.flutter_models.FlutterArCorePose
+import com.difrancescogianmarco.arcore_flutter_plugin.models.RotatingNode
 import com.difrancescogianmarco.arcore_flutter_plugin.utils.ArCoreUtils
-import com.google.ar.core.AugmentedImage
+import com.google.ar.core.*
 import com.google.ar.core.AugmentedImageDatabase
 import com.google.ar.core.Config
 import com.google.ar.core.TrackingState
@@ -17,6 +19,7 @@ import com.google.ar.core.exceptions.CameraNotAvailableException
 import com.google.ar.core.exceptions.UnavailableException
 import com.google.ar.sceneform.AnchorNode
 import com.google.ar.sceneform.Scene
+import com.google.ar.sceneform.*
 import io.flutter.plugin.common.BinaryMessenger
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
@@ -187,6 +190,12 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
                     val flutterNode = FlutterArCoreNode(map);
                     onAddNode(flutterNode, result)
                 }
+                "addArCoreNodeWithAnchor" -> {
+                    Log.i(TAG, " addArCoreNode")
+                    val map = call.arguments as HashMap<String, Any>
+                    val flutterNode = FlutterArCoreNode(map)
+                    addNodeWithAnchor(flutterNode, result)
+                }
                 "removeARCoreNode" -> {
                     Log.i(TAG, " removeARCoreNode")
                     val map = call.arguments as HashMap<String, Any>
@@ -203,6 +212,35 @@ class ArCoreAugmentedImagesView(activity: Activity, context: Context, messenger:
         } else {
             Log.i(TAG, "Impossible call " + call.method + " method on unsupported device")
             result.error("Unsupported Device", "", null)
+        }
+    }
+
+    fun addNodeWithAnchor(flutterArCoreNode: FlutterArCoreNode, result: MethodChannel.Result) {
+
+        if (arSceneView == null) {
+            return
+        }
+
+        RenderableCustomFactory.makeRenderable(activity.applicationContext, flutterArCoreNode) { renderable, t ->
+            if (t != null) {
+                result.error("Make Renderable Error", t.localizedMessage, null)
+                return@makeRenderable
+            }
+            val myAnchor = arSceneView?.session?.createAnchor(Pose(flutterArCoreNode.getPosition(), flutterArCoreNode.getRotation()))
+            if (myAnchor != null) {
+                val anchorNode = AnchorNode(myAnchor)
+                anchorNode.name = flutterArCoreNode.name
+                anchorNode.renderable = renderable
+
+                Log.i(TAG, "addNodeWithAnchor inserted ${anchorNode.name}")
+                attachNodeToParent(anchorNode, flutterArCoreNode.parentNodeName)
+
+                for (node in flutterArCoreNode.children) {
+                    node.parentNodeName = flutterArCoreNode.name
+                    onAddNode(node, null)
+                }
+            }
+            result.success(null)
         }
     }
 

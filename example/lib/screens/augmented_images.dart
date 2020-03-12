@@ -33,10 +33,9 @@ class _AugmentedPageState extends State<AugmentedPage> {
     //loadSingleImage();
     //OR
     loadImagesDatabase();
-    _addCube(controller);
   }
 
-  void _addCube(ArCoreController controller) {
+  void _addCube(ArCoreController controller, ArCoreAugmentedImage image) {
     final material = ArCoreMaterial(
       color: Color.fromARGB(120, 66, 134, 244),
       metallic: 1.0,
@@ -47,9 +46,10 @@ class _AugmentedPageState extends State<AugmentedPage> {
     );
     final node = ArCoreNode(
       shape: cube,
-      position: vector.Vector3(-0.5, 0.5, -3.5),
+      position: image.centerPose.translation,
+      rotation: image.centerPose.rotation
     );
-    controller.addArCoreNode(node);
+    controller.addArCoreNodeWithAnchor(node);
   }
 
   loadSingleImage() async {
@@ -69,6 +69,7 @@ class _AugmentedPageState extends State<AugmentedPage> {
     if (!augmentedImagesMap.containsKey(augmentedImage.index)) {
       augmentedImagesMap[augmentedImage.index] = augmentedImage;
       _addSphere(augmentedImage);
+      _addCube(arCoreController, augmentedImage);
     }
   }
 
